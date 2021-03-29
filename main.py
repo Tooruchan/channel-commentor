@@ -32,6 +32,14 @@ class Timer:
         except asyncio.CancelledError:
             pass
 
+async def del_remider(client: Client, chat_id, msg: Message):
+    await client.delete_messages(chat_id, msg.message_id)
+
+
+async def ban_user(client: Client, chat_id, user: User):
+    await client.kick_chat_member(chat_id, user.id)
+    await client.send_message(chat_id, "检测到用户ID: " + str(user.id) + " 加入频道附属群，已踢出，10s 后自动解封。")
+
 
 async def unban(client: Client, chat_id, user_id):
     await client.unban_chat_member(chat_id, user_id)
@@ -46,11 +54,14 @@ async def gen_poll(client: Client, message: Message):
 
 @app.on_message(filters.new_chat_members)
 async def kick_member(client: Client, message: Message):
-    await client.delete_messages(message.chat.id, message.message_id)
-    await client.kick_chat_member(user_id=message.from_user.id, chat_id=message.chat.id)
-    Timer(unban(client, message.chat.id, message.from_user.id), 10)
+    user = message.from_user
+    chat_id = message.chat.id
+    remind_msg = await message.reply("本群为频道附属评论群，请勿直接加入，此信息为警告信息，30s 后您将会被自动踢出。")
+    await client.restrict_chat_member(chat_id, user.id, ChatPermissions())
+    Timer(del_remider(client, chat_id, remind_msg), 30)
+    Timer(ban_user(client, chat_id, user), 30)
+    Timer(unban(client, chat_id, user), 10)
     # 此处上面的 10 是发现用户加群的解封间隔，单位为秒，修改完别忘了把下面的 10s 后自动解封也改了
-    await client.send_message(message.chat.id, "检测到用户ID: " + str(message.from_user.id) + " 加入频道附属群，已踢出，10s 后自动解封。")
 
 
 try:
